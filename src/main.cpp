@@ -21,14 +21,17 @@ long stepDuration = 500000;      // how long, in microseconds, a single step las
 long timeOfLoopStart = 0;        // when the first step occured on the system clock
 
 // RECORDING TOUCH SEQUENCE
-byte seqEventStatesA = 0;        // records a total of 8 touch events (if 1 == there was an event, 0 == no event)
-long seqEventDurationsA[8];      // records the duration of each event (mapped to seqEventStatesA)
+byte trigEvents = 0;             // records a total of 8 touch events (if 1 == there was an event, 0 == no event)
+byte trigStatus = 0;             // boolean for recording if the event has or has not been triggered
+long trigDuration[8];            // records the duration of each event (mapped to trigEvents)
+long trigPosition[8];            // records the position of each event relative to the loop length (in microseconds)
 
 // MICROSECOND RECORDERS
 long timeOfLastClock = 0;        //
 long timeOfLastTouchA = 0;       // when channel A was last touched in microseconds
 long timeOfLastReleaseA = 0;     // when channel A was last released in microseconds
 bool triggered = false;          // determin if channel A has already been triggered/set HIGH
+
 
 uint16_t lastTouched = 0;
 uint16_t currTouched = 0;
@@ -76,6 +79,7 @@ void loop() {
 
   long now = micros();
 
+  // indicate tempo and loop start position via LEDs
   if (now - pulseDuration < timeOfLastClock) {
     digitalWrite(CLOCK_LED_PIN, HIGH);
     if (currentStep == 1) {digitalWrite(LOOP_START_LED_PIN, HIGH);}
@@ -106,11 +110,12 @@ void loop() {
       io.digitalWrite(CHANNEL_A_LED_PIN, LOW);
       timeOfLastReleaseA = now - timeOfLoopStart;
 
-      for (uint8_t i = 0; i < 8; i++) {
-        // record an event and assign the events duration to array
-        if (bitRead(seqEventStatesA, i) == LOW) {
-          bitWrite(seqEventStatesA, i, HIGH);
-          seqEventDurationsA[i] = timeOfLastReleaseA - timeOfLastTouchA;
+      for (uint8_t i = 0; i < steps; i++) {
+        // record an event and assign both the event duration and position to respective arrays
+        if (bitRead(trigEvents, i) == LOW) {
+          bitWrite(trigEvents, i, HIGH);
+          trigDuration[i] = timeOfLastReleaseA - timeOfLastTouchA;
+          trigPosition[i] = timeOfLastTouchA;
           break;
         }
       }
@@ -119,13 +124,18 @@ void loop() {
     }
   }
 
-  // if now is greater than lastTouch and less than lastRelease
-  if (now - timeOfLoopStart > timeOfLastTouchA && now - timeOfLoopStart < timeOfLastReleaseA && !triggered) {
-    io.digitalWrite(CHANNEL_A_LED_PIN, HIGH);
-    triggered = true;
-  } else if (now - timeOfLoopStart > timeOfLastReleaseA && triggered) {
-    io.digitalWrite(CHANNEL_A_LED_PIN, LOW);
-    triggered = false;
+  for (uint8_t i = 0; i < steps; i++) {
+    // if there is an trig event at the current position (microsecond) in the loop, and it has not already
+    // been triggered, trigger it for the duration of the event and set the trigStatus to true (ie triggered);
+    if (now - timeOfLoopStart > trigPosition[i] && now - timeOfLoopStart < trigPosition[i] + trigDuration[i] && !bitRead(trigStatus, i)) {
+      io.digitalWrite(CHANNEL_A_LED_PIN, HIGH);
+      bitWrite(trigStatus, i, true);
+    }
+    // if the time in the loop has passed the duration of the event, set output to LOW
+    else if (now - timeOfLoopStart > trigPosition[i] + trigDuration[i] && bitRead(trigStatus, i)) {
+      io.digitalWrite(CHANNEL_A_LED_PIN, LOW);
+      bitWrite(trigStatus, i, false);
+    }
   }
 
   // reset touch sensors state
