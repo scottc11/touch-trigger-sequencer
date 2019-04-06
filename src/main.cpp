@@ -124,13 +124,16 @@ void loop() {
     }
   }
 
+  // where the triggering happens
   for (uint8_t i = 0; i < steps; i++) {
-    // if there is an trig event at the current position (microsecond) in the loop, and it has not already
+
+    // if there is a trig event at the current position (microsecond) in the loop, and it has not already
     // been triggered, trigger it for the duration of the event and set the trigStatus to true (ie triggered);
     if (now - timeOfLoopStart > trigPosition[i] && now - timeOfLoopStart < trigPosition[i] + trigDuration[i] && !bitRead(trigStatus, i)) {
       io.digitalWrite(CHANNEL_A_LED_PIN, HIGH);
       bitWrite(trigStatus, i, true);
     }
+
     // if the time in the loop has passed the duration of the event, set output to LOW
     else if (now - timeOfLoopStart > trigPosition[i] + trigDuration[i] && bitRead(trigStatus, i)) {
       io.digitalWrite(CHANNEL_A_LED_PIN, LOW);
