@@ -2,6 +2,7 @@
 #include <Adafruit_MCP23017.h>
 #include <TimerOne.h>
 #include <Adafruit_MPR121.h>
+#include <Event.cpp>
 
 #define IO_ADDR 0x00
 #define TOUCH_ADDR 0x5A
@@ -13,6 +14,7 @@ const bool DEBUG = false;
 const int CLOCK_LED_PIN = 4;
 const int LOOP_START_LED_PIN = 5;
 
+
 int currentStep = 1;
 int steps = 8;                   // how many steps before sequencer loop resets
 int clocked = 0;                 // how many times externally clocked
@@ -21,10 +23,9 @@ long stepDuration = 500000;      // how long, in microseconds, a single step las
 long timeOfLoopStart = 0;        // when the first step occured on the system clock
 
 // RECORDING TOUCH SEQUENCE
-byte trigEvents = 0;             // records a total of 8 touch events (if 1 == there was an event, 0 == no event)
-byte trigStatus = 0;             // boolean for recording if the event has or has not been triggered
-long trigDuration[8];            // records the duration of each event (mapped to trigEvents)
-long trigPosition[8];            // records the position of each event relative to the loop length (in microseconds)
+int numEvents = 0;
+Event * current;
+
 
 // MICROSECOND RECORDERS
 long timeOfLastClock = 0;        //
@@ -110,34 +111,39 @@ void loop() {
       io.digitalWrite(CHANNEL_A_LED_PIN, LOW);
       timeOfLastReleaseA = now - timeOfLoopStart;
 
-      for (uint8_t i = 0; i < steps; i++) {
-        // record an event and assign both the event duration and position to respective arrays
-        if (bitRead(trigEvents, i) == LOW) {
-          bitWrite(trigEvents, i, HIGH);
-          trigDuration[i] = timeOfLastReleaseA - timeOfLastTouchA;
-          trigPosition[i] = timeOfLastTouchA;
-          break;
-        }
-      }
+      long position = timeOfLastTouchA;
+      long duration = timeOfLastReleaseA - timeOfLastTouchA;
 
-      Serial.print("timeOfLastReleaseA: ");Serial.println(timeOfLastReleaseA);
+      // create new event
+      Event *newEvent = new Event(1, position, duration);
+      current->next = newEvent;
+
+      // iterate through all events
+
+      // if new event.position is less than all nodes, mark as first event
+
+      // else if event.position is great than i.position and less than (i + 1).position, set i.next == new events pointer
+
+
+      // increment number of events by 1
+      numEvents += 1;
+      Serial.print("position: ");Serial.println(current->position);
+      Serial.print("duration: ");Serial.println(current->duration);
+      Serial.print("triggered: ");Serial.println(current->triggered);
     }
   }
 
-  // where the triggering happens
-  for (uint8_t i = 0; i < steps; i++) {
 
-    // if there is a trig event at the current position (microsecond) in the loop, and it has not already
-    // been triggered, trigger it for the duration of the event and set the trigStatus to true (ie triggered);
-    if (now - timeOfLoopStart > trigPosition[i] && now - timeOfLoopStart < trigPosition[i] + trigDuration[i] && !bitRead(trigStatus, i)) {
-      io.digitalWrite(CHANNEL_A_LED_PIN, HIGH);
-      bitWrite(trigStatus, i, true);
-    }
-
-    // if the time in the loop has passed the duration of the event, set output to LOW
-    else if (now - timeOfLoopStart > trigPosition[i] + trigDuration[i] && bitRead(trigStatus, i)) {
+  if (numEvents > 0) {
+    long nowish = now - timeOfLoopStart;
+    if (!current->triggered) {
+      if (nowish >= current->position && nowish < current->position + current->duration) {
+        io.digitalWrite(CHANNEL_A_LED_PIN, HIGH);
+        current->triggered = true;
+      }
+    } else if (nowish > current->position + current->duration) {
       io.digitalWrite(CHANNEL_A_LED_PIN, LOW);
-      bitWrite(trigStatus, i, false);
+      current->triggered = false;
     }
   }
 
