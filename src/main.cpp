@@ -25,7 +25,8 @@ long timeOfLoopStart = 0;        // when the first step occured on the system cl
 // RECORDING TOUCH SEQUENCE
 int numEvents = 0;
 Event * current;
-
+Event * HEAD;
+Event * NEXT;
 
 // MICROSECOND RECORDERS
 long timeOfLastClock = 0;        //
@@ -45,7 +46,7 @@ void advanceClock() {
   timeOfLastClock = micros();  // the current time
   if (currentStep == 1) {
     timeOfLoopStart = timeOfLastClock;
-    Serial.print("timeOfLoopStart: ");Serial.println(timeOfLoopStart);
+    // Serial.print("timeOfLoopStart: ");Serial.println(timeOfLoopStart);
   }
   // increment currentStep by 1
   if (currentStep < steps) {
@@ -109,41 +110,84 @@ void loop() {
     //  if it *was* touched and now *isnt*
     if (!(currTouched & _BV(i)) && (lastTouched & _BV(i)) ) {
       io.digitalWrite(CHANNEL_A_LED_PIN, LOW);
-      timeOfLastReleaseA = now - timeOfLoopStart;
 
+      timeOfLastReleaseA = now - timeOfLoopStart;
       long position = timeOfLastTouchA;
       long duration = timeOfLastReleaseA - timeOfLastTouchA;
 
       // create new event
       Event *newEvent = new Event(1, position, duration);
-      current->next = newEvent;
-
-      // iterate through all events
-
-      // if new event.position is less than all nodes, mark as first event
-
-      // else if event.position is great than i.position and less than (i + 1).position, set i.next == new events pointer
-
 
       // increment number of events by 1
       numEvents += 1;
-      Serial.print("position: ");Serial.println(current->position);
-      Serial.print("duration: ");Serial.println(current->duration);
-      Serial.print("triggered: ");Serial.println(current->triggered);
+
+      if (numEvents == 1) {
+        // set HEAD to the "first" event
+        // this events.position will presently be the smallest number, until a new event with a position closest to timeOfLoopStart occurs
+        HEAD = newEvent;
+        NEXT = HEAD;
+      }
+
+      if (numEvents == 2) {
+        HEAD->next = newEvent;
+      }
+
+      // iterate through all events until there are no more remaining
+      if (HEAD->next != NULL) {
+        Event * iterator = HEAD;
+        while (iterator->next != NULL) {
+
+          // if greater than iterator->position and iterator->next == NULL
+          if (newEvent->position > iterator->position && iterator->next == NULL) {
+            iterator->next = newEvent;
+            Serial.println(" <-put after last event in loop-> ");
+            break;
+          }
+
+          // greater than iterator->position and less than iterator->next->position
+          else if (newEvent->position > iterator->position && newEvent->position < iterator->next->position) {
+            newEvent->next = iterator->next;
+            iterator->next = newEvent;
+            Serial.println(" <-put in between two events-> ");
+            break; // we can break out of loop now that the new events location in linked list has been determined
+          }
+
+          // if less than head node, mark as head
+          else if (newEvent->position < iterator->position) {
+            newEvent->next = iterator;
+            HEAD = newEvent; // ie. HEAD
+            Serial.println(" <-set event as head-> ");
+            break;
+          }
+
+          iterator = iterator->next;  // set the iterator pointer to the next event in linked list
+        }
+      }
     }
   }
 
 
-  if (numEvents > 0) {
+  if (NEXT) {
     long nowish = now - timeOfLoopStart;
-    if (!current->triggered) {
-      if (nowish >= current->position && nowish < current->position + current->duration) {
+    if (!NEXT->triggered) { // ifnext event has not yet been triggered
+      if (nowish >= NEXT->position && nowish < NEXT->position + NEXT->duration) {
         io.digitalWrite(CHANNEL_A_LED_PIN, HIGH);
-        current->triggered = true;
+        NEXT->triggered = true;
       }
-    } else if (nowish > current->position + current->duration) {
+    }
+    else if (nowish > NEXT->position + NEXT->duration) {
       io.digitalWrite(CHANNEL_A_LED_PIN, LOW);
-      current->triggered = false;
+      NEXT->triggered = false;
+      // if there IS an event after NEXT
+      if (NEXT->next) {
+        NEXT = NEXT->next;
+        Serial.println(" <-set NEXT to next event-> ");
+      }
+      // if there is no more events, set the NEXT event equalt to the HEAD (ie. first event in loop)
+      else {
+        NEXT = HEAD;
+        Serial.println(" <-RESET-> ");
+      }
     }
   }
 
