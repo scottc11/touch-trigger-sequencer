@@ -27,7 +27,7 @@ long timeOfLoopStart = 0;        // when the first step occured on the system cl
 int numEvents = 0;
 Event * current;
 Event * HEAD;
-Event * NEXT;
+Event * QUEUED;
 
 // MICROSECOND RECORDERS
 long timeOfLastClock = 0;        //
@@ -35,6 +35,9 @@ long timeOfLastTouchA = 0;       // when channel A was last touched in microseco
 long timeOfLastReleaseA = 0;     // when channel A was last released in microseconds
 bool triggered = false;          // determin if channel A has already been triggered/set HIGH
 
+// RESET BUTTONS
+int newResetButtonState = 0;
+int prevResetButtonState = 0;
 
 uint16_t lastTouched = 0;
 uint16_t currTouched = 0;
@@ -79,6 +82,21 @@ void setup() {
 }
 
 void loop() {
+
+  newResetButtonState = io.digitalRead(7);
+
+  if (newResetButtonState != prevResetButtonState) {
+    if (newResetButtonState == HIGH) {
+      Serial.println("delete all events");
+      while (HEAD) {
+        Event *next = HEAD->next;
+        delete HEAD;
+        HEAD = next;
+      }
+      numEvents = 0;
+    }
+    prevResetButtonState = newResetButtonState;
+  }
 
   long now = micros();
 
@@ -126,7 +144,7 @@ void loop() {
         // set HEAD to the "first" event
         // this events.position will presently be the smallest number, until a new event with a position closest to timeOfLoopStart occurs
         HEAD = newEvent;
-        NEXT = HEAD;
+        QUEUED = HEAD;
       }
 
       if (numEvents == 2) {
@@ -168,28 +186,27 @@ void loop() {
     }
   }
 
-
-  if (NEXT) {
+  // TRIGGER THE QUEUED EVENT
+  if (QUEUED) {
     long nowish = now - timeOfLoopStart;
-    if (!NEXT->triggered) { // ifnext event has not yet been triggered
-      if (nowish >= NEXT->position && nowish < NEXT->position + NEXT->duration) {
+
+    if (!QUEUED->triggered) { // ifnext event has not yet been triggered
+      if (nowish >= QUEUED->position && nowish < QUEUED->position + QUEUED->duration) {
         io.digitalWrite(CHANNEL_A_LED_PIN, HIGH);
-        NEXT->triggered = true;
+        QUEUED->triggered = true;
       }
     }
-    else if (nowish > NEXT->position + NEXT->duration) {
+
+    else if (nowish > QUEUED->position + QUEUED->duration) {
+
       io.digitalWrite(CHANNEL_A_LED_PIN, LOW);
-      NEXT->triggered = false;
-      // if there IS an event after NEXT
-      if (NEXT->next) {
-        NEXT = NEXT->next;
-        // Serial.println(" <-set NEXT to next event-> ");
-      }
-      // if there is no more events, set the NEXT event equalt to the HEAD (ie. first event in loop)
-      else {
-        NEXT = HEAD;
-        // Serial.println(" <-RESET-> ");
-      }
+      QUEUED->triggered = false;
+
+      // if there IS an event after QUEUED, set QUEUED to that event
+      if (QUEUED->next) { QUEUED = QUEUED->next; }
+
+      // if there is no more events, set the QUEUED event equalt to the HEAD (ie. first event in loop)
+      else { QUEUED = HEAD; }
     }
   }
 
