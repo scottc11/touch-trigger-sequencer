@@ -24,7 +24,6 @@ long stepDuration = 500000;      // how long, in microseconds, a single step las
 long timeOfLoopStart = 0;        // when the first step occured on the system clock
 
 // RECORDING TOUCH SEQUENCE
-int numEvents = 0;
 Event * current;
 Event * HEAD;
 Event * QUEUED;
@@ -93,7 +92,6 @@ void loop() {
         delete HEAD;
         HEAD = next;
       }
-      numEvents = 0;
     }
     prevResetButtonState = newResetButtonState;
   }
@@ -137,17 +135,13 @@ void loop() {
       // create new event
       Event *newEvent = new Event(1, position, duration);
 
-      // increment number of events by 1
-      numEvents += 1;
-
-      if (numEvents == 1) {
-        // set HEAD to the "first" event
-        // this events.position will presently be the smallest number, until a new event with a position closest to timeOfLoopStart occurs
+      if (HEAD == NULL) {
+        Serial.println("head is NULL");
         HEAD = newEvent;
         QUEUED = HEAD;
       }
 
-      if (numEvents == 2) {
+      else if (HEAD->next == NULL) {
         HEAD->next = newEvent;
       }
 
