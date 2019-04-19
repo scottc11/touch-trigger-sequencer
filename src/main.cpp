@@ -3,6 +3,7 @@
 #include <TimerOne.h>
 #include <Adafruit_MPR121.h>
 #include <Event.cpp>
+#include <Channel.cpp>
 
 #define IO_ADDR 0x00
 #define TOUCH_ADDR 0x5A
