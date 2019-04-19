@@ -134,33 +134,34 @@ void loop() {
 
       // iterate through all events until there are no more remaining
       if (HEAD->next != NULL) {
-        Event * iterator = HEAD;
-        while (iterator->next != NULL) {
 
-          // if greater than iterator->position and iterator->next == NULL
-          if (newEvent->position > iterator->position && iterator->next == NULL) {
-            iterator->next = newEvent;
+        Event * cur = HEAD;
+        while (cur != NULL) {
+
+          // if greater than cur->next->position
+          if (newEvent->position > cur->position && cur->next == NULL) {
+            cur->next = newEvent;
             Serial.println(" <-put after last event in loop-> ");
             break;
           }
 
-          // greater than iterator->position and less than iterator->next->position
-          else if (newEvent->position > iterator->position && newEvent->position < iterator->next->position) {
-            newEvent->next = iterator->next;
-            iterator->next = newEvent;
+          // greater than cur->position and less than cur->next->position
+          else if (newEvent->position > cur->position && newEvent->position < cur->next->position) {
+            newEvent->next = cur->next;
+            cur->next = newEvent;
             Serial.println(" <-put in between two events-> ");
             break; // we can break out of loop now that the new events location in linked list has been determined
           }
 
           // if less than head node, mark as head
-          else if (newEvent->position < iterator->position) {
-            newEvent->next = iterator;
+          else if (newEvent->position < cur->position) {
+            newEvent->next = cur;
             HEAD = newEvent; // ie. HEAD
             Serial.println(" <-set event as head-> ");
             break;
           }
 
-          iterator = iterator->next;  // set the iterator pointer to the next event in linked list
+          cur = cur->next;  // set the iterator pointer to the next event in linked list
         }
       }
     }
@@ -181,12 +182,12 @@ void loop() {
       // if there IS an event after NEXT
       if (NEXT->next) {
         NEXT = NEXT->next;
-        Serial.println(" <-set NEXT to next event-> ");
+        // Serial.println(" <-set NEXT to next event-> ");
       }
       // if there is no more events, set the NEXT event equalt to the HEAD (ie. first event in loop)
       else {
         NEXT = HEAD;
-        Serial.println(" <-RESET-> ");
+        // Serial.println(" <-RESET-> ");
       }
     }
   }
