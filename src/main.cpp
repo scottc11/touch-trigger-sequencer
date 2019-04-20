@@ -2,7 +2,7 @@
 #include <Adafruit_MCP23017.h>
 #include <TimerOne.h>
 #include <Adafruit_MPR121.h>
-#include <Event.cpp>
+#include <Event.h>
 #include <Channel.cpp>
 
 #define IO_ADDR 0x00
@@ -11,7 +11,7 @@
 Adafruit_MCP23017 io = Adafruit_MCP23017();
 Adafruit_MPR121 touch = Adafruit_MPR121();
 
-const bool DEBUG = false;
+const bool DEBUG = true;
 const int CLOCK_LED_PIN = 4;
 const int LOOP_START_LED_PIN = 5;
 
@@ -86,12 +86,14 @@ void loop() {
 
   if (newResetButtonState != prevResetButtonState) {
     if (newResetButtonState == HIGH) {
-      Serial.println("delete all events");
-      while (HEAD) {
-        Event *next = HEAD->next;
-        delete HEAD;
-        HEAD = next;
+      Event *tmp;
+      while (HEAD != NULL) {
+        tmp = HEAD;
+        HEAD = HEAD->next;
+        delete tmp;
       }
+      QUEUED = NULL;
+      if (DEBUG && HEAD == NULL) { Serial.println("all events deleted"); }
     }
     prevResetButtonState = newResetButtonState;
   }
@@ -199,7 +201,7 @@ void loop() {
       // if there IS an event after QUEUED, set QUEUED to that event
       if (QUEUED->next) { QUEUED = QUEUED->next; }
 
-      // if there is no more events, set the QUEUED event equalt to the HEAD (ie. first event in loop)
+      // if there are no more events, set the QUEUED event equal to the HEAD (ie. first event in loop)
       else { QUEUED = HEAD; }
     }
   }
