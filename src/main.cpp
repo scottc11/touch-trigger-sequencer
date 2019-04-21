@@ -80,10 +80,18 @@ void setup() {
   Serial.println("::: Setup Complete :::");
 }
 
+
+
+// ------------------------------------
+// LOOP
+// ------------------------------------
 void loop() {
 
-  newResetButtonState = io.digitalRead(7);
+  long now = micros();                       // used throughout loop() function
+  currTouched = touch.touched();             // Get the currently touched pads
+  newResetButtonState = io.digitalRead(7);   // detect reset buttons
 
+  // --------- HANDLE RESET BUTTON ---------
   if (newResetButtonState != prevResetButtonState) {
     if (newResetButtonState == HIGH) {
       Event *tmp;
@@ -98,8 +106,7 @@ void loop() {
     prevResetButtonState = newResetButtonState;
   }
 
-  long now = micros();
-
+  // ------ CLOCK INDICATORS -----
   // indicate tempo and loop start position via LEDs
   if (now - pulseDuration < timeOfLastClock) {
     digitalWrite(CLOCK_LED_PIN, HIGH);
@@ -110,10 +117,9 @@ void loop() {
   }
 
 
-  // Get the currently touched pads
-  currTouched = touch.touched();
 
-  // Iterate over touch sensors
+
+  // ------ HANDLE TOUCH EVENTS -----
   for (uint8_t i=0; i<4; i++) {
 
     // if it *is* touched and *wasnt* touched before
@@ -182,19 +188,18 @@ void loop() {
     }
   }
 
-  // TRIGGER THE QUEUED EVENT
+  // HANDLE THE QUEUED EVENT
   if (QUEUED) {
-    long nowish = now - timeOfLoopStart;
+    long loopStart = now - timeOfLoopStart;
 
     if (!QUEUED->triggered) { // ifnext event has not yet been triggered
-      if (nowish >= QUEUED->position && nowish < QUEUED->position + QUEUED->duration) {
+      if (loopStart >= QUEUED->position && loopStart < QUEUED->position + QUEUED->duration) {
         io.digitalWrite(CHANNEL_A_LED_PIN, HIGH);
         QUEUED->triggered = true;
       }
     }
 
-    else if (nowish > QUEUED->position + QUEUED->duration) {
-
+    else if (loopStart > QUEUED->position + QUEUED->duration) {
       io.digitalWrite(CHANNEL_A_LED_PIN, LOW);
       QUEUED->triggered = false;
 
