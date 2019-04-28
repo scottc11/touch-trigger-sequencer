@@ -12,6 +12,7 @@ Adafruit_MCP23017 io = Adafruit_MCP23017();
 Adafruit_MPR121 touch = Adafruit_MPR121();
 
 const bool DEBUG = true;
+const int CLOCK_INTERUPT_PIN = 2;
 const int CLOCK_LED_PIN = 4;
 const int LOOP_START_LED_PIN = 5;
 
@@ -59,6 +60,21 @@ void advanceClock() {
   }
 }
 
+volatile long lastPulseInterval = 0;
+
+void detectTempo() {
+
+  long now = micros();
+  long newPulseInterval = now - timeOfLastClock;
+  timeOfLastClock = now;
+
+  if (newPulseInterval != lastPulseInterval) {
+    // tell timer to trigger callback at an interval if newPulseInterval / PPQ
+    Timer1.setPeriod(newPulseInterval);
+  }
+
+  lastPulseInterval = newPulseInterval;
+}
 
 void setup() {
   Serial.begin(9600);
@@ -67,8 +83,13 @@ void setup() {
 
   io.begin(IO_ADDR);
 
+  // create interupt to detect external clock tempo
+  attachInterrupt(digitalPinToInterrupt(CLOCK_INTERUPT_PIN), detectTempo, FALLING);
+
   Timer1.initialize(stepDuration); // initialize @ 120 BPM
   Timer1.attachInterrupt(advanceClock);
+
+
 
   pinMode(CLOCK_LED_PIN, OUTPUT);
   digitalWrite(CLOCK_LED_PIN, LOW);
